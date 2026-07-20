@@ -1,7 +1,20 @@
+! ============================================================
 ! Configuracao do Switch Cisco Catalyst 9300-48U
 ! Projeto Scalper de Baixa Latencia
+! ============================================================
 
-! Criacao das VLANs
+! Versao do IOS
+version 17.3
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+
+! Hostname
+hostname SW-CORE-01
+
+! ============================================================
+! CRIACAO DAS VLANS
+! ============================================================
 vlan 10
  name Administrativa
 !
@@ -12,39 +25,137 @@ vlan 30
  name Servidores
 !
 
-! Configuracao das interfaces
-interface GigabitEthernet1/0/1-24
+! ============================================================
+! CONFIGURACAO DAS INTERFACES
+! ============================================================
+
+! Portas 1-24: VLAN 20 (Operacoes) - MAXIMA PRIORIDADE
+interface range GigabitEthernet1/0/1-24
  switchport mode access
  switchport access vlan 20
  spanning-tree portfast
  priority-queue out
  service-policy input TRAFFIC-POLICY
+ no shutdown
+!
+description "Servidores de Trading - VLAN 20"
+
+! Portas 25-40: VLAN 10 (Administrativa) - BAIXA PRIORIDADE
+interface range GigabitEthernet1/0/25-40
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+ no shutdown
+!
+description "Estacoes de Trabalho - VLAN 10"
+
+! Portas 41-48: VLAN 30 (Servidores) - MEDIA PRIORIDADE
+interface range GigabitEthernet1/0/41-48
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+ no shutdown
+!
+description "Servidores BD/Logs - VLAN 30"
+
+! Porta Uplink (Fibra)
+interface TenGigabitEthernet1/1/1
+ description "Uplink para Roteador/Firewall"
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30
+ no shutdown
 !
 
-! QoS - Prioridade maxima para trafego de ordens
+! ============================================================
+! QoS - QUALITY OF SERVICE
+! ============================================================
+
+! Class-Map: Identifica trafego de ordens (DSCP 46)
 class-map match-all TRADING-ORDERS
  match vlan 20
  match dscp 46
 !
 
+! Class-Map: Identifica dados de mercado (DSCP 34)
+class-map match-all MARKET-DATA
+ match vlan 20
+ match dscp 34
+!
+
+! Policy-Map: Aplica prioridades
 policy-map TRAFFIC-POLICY
  class TRADING-ORDERS
   priority percent 50
+  police cir percent 50
+ !
+ class MARKET-DATA
+  bandwidth percent 30
+  queue-limit 128
+ !
  class class-default
   fair-queue
+  bandwidth percent 20
+  queue-limit 256
 !
 
-! STP otimizado para baixa latencia
+! ============================================================
+! SPANNING TREE OTIMIZADO
+! ============================================================
+spanning-tree mode rapid-pvst
 spanning-tree portfast default
 spanning-tree bpduguard enable
+spanning-tree uplinkfast
+
+! ============================================================
+! SEGURANCA
+! ============================================================
+! Port-Security nas portas administrativas
+interface range GigabitEthernet1/0/25-40
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
 !
 
-! Monitoramento
-snmp-server community public RO
-snmp-server host 192.168.10.100 public
-!
-
-! Logging
+! ============================================================
+! MONITORAMENTO E LOGGING
+! ============================================================
 logging buffered 16384
 logging console critical
 logging monitor informational
+logging host 192.168.10.100
+
+snmp-server community public RO
+snmp-server host 192.168.10.100 public
+snmp-server enable traps
+
+! ============================================================
+! VLAN INTERFACE ROUTING (SVI)
+! ============================================================
+interface Vlan10
+ description "VLAN Administrativa"
+ ip address 192.168.10.1 255.255.255.0
+ no shutdown
+!
+
+interface Vlan20
+ description "VLAN Operacoes"
+ ip address 192.168.20.1 255.255.255.0
+ no shutdown
+!
+
+interface Vlan30
+ description "VLAN Servidores"
+ ip address 192.168.30.1 255.255.255.0
+ no shutdown
+!
+
+! ============================================================
+! SALVAR CONFIGURACAO
+! ============================================================
+!
+! Comandos para salvar:
+!   copy running-config startup-config
+!   write memory
+!
+! ============================================================
