@@ -1,0 +1,50 @@
+! Configuracao do Switch Cisco Catalyst 9300-48U
+! Projeto Scalper de Baixa Latencia
+
+! Criacao das VLANs
+vlan 10
+ name Administrativa
+!
+vlan 20
+ name Operacoes
+!
+vlan 30
+ name Servidores
+!
+
+! Configuracao das interfaces
+interface GigabitEthernet1/0/1-24
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ priority-queue out
+ service-policy input TRAFFIC-POLICY
+!
+
+! QoS - Prioridade maxima para trafego de ordens
+class-map match-all TRADING-ORDERS
+ match vlan 20
+ match dscp 46
+!
+
+policy-map TRAFFIC-POLICY
+ class TRADING-ORDERS
+  priority percent 50
+ class class-default
+  fair-queue
+!
+
+! STP otimizado para baixa latencia
+spanning-tree portfast default
+spanning-tree bpduguard enable
+!
+
+! Monitoramento
+snmp-server community public RO
+snmp-server host 192.168.10.100 public
+!
+
+! Logging
+logging buffered 16384
+logging console critical
+logging monitor informational

@@ -1,0 +1,78 @@
+# Configuracao de Rede para Operacao Scalper de Baixa Latencia
+
+network:
+  vlans:
+    - id: 10
+      name: Administrativa
+      subnet: 192.168.10.0/24
+      priority: low
+      description: "Gerenciamento de equipamentos, SSH, SNMP"
+
+    - id: 20
+      name: Operacoes
+      subnet: 192.168.20.0/24
+      priority: highest
+      description: "Trafico do robo de trading com maxima prioridade"
+
+    - id: 30
+      name: Servidores
+      subnet: 192.168.30.0/24
+      priority: medium
+      description: "Banco de dados, logs e backup"
+
+  qos:
+    - traffic_class: trading_orders
+      vlan: 20
+      dscp: 46
+      bandwidth_guarantee: "50%"
+      description: "Maxima prioridade para ordens de trading"
+
+    - traffic_class: market_data
+      vlan: 20
+      dscp: 34
+      bandwidth_guarantee: "30%"
+      description: "Dados de mercado em tempo real"
+
+    - traffic_class: administrative
+      vlan: 10
+      dscp: 0
+      bandwidth_guarantee: "10%"
+      description: "Trafico administrativo de baixa prioridade"
+
+    - traffic_class: backup
+      vlan: 30
+      dscp: 8
+      bandwidth_guarantee: "10%"
+      description: "Backups e logs"
+
+  links:
+    primary:
+      type: "Dedicado"
+      bandwidth: "1 Gbps"
+      latency: "< 5ms"
+      sla: "99.99%"
+      provider: "Provedor X"
+      
+    backup:
+      type: "Fibra Corporativa"
+      bandwidth: "500 Mbps"
+      latency: "< 20ms"
+      sla: "99.9%"
+      provider: "Provedor Y"
+
+  equipment:
+    switch_core:
+      model: "Cisco Catalyst 9300-48U"
+      ports: 48
+      poe: true
+      switching_latency: "< 1µs"
+      
+    firewall:
+      model: "FortiGate 200F"
+      throughput: "20 Gbps"
+      features: ["Stateful", "QoS", "VLAN"]
+      
+    switch_distribution:
+      model: "Cisco Catalyst 9200L-48P"
+      ports: 48
+      poe: true
